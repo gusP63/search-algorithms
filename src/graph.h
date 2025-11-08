@@ -8,6 +8,8 @@ struct connections_list;
 struct node;
 struct node_list;
 
+static char current_id = 'A';
+
 typedef struct connection {
   struct node *n;
   int cost;

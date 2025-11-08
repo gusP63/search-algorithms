@@ -3,8 +3,6 @@
 
 #include "graph.h"
 
-static char current_id = 'A';
-
 node *createNode() {
   node *new = (node *)malloc(sizeof(node));
 
@@ -18,6 +16,10 @@ node *createNode() {
 
 void connectNodes(node *n1, node *n2, const int cost) {
   if (!n1 || !n2) return;
+
+  for (int i = 0; i < n1->connections->count; i++) {
+    if (n1->connections->elements[i].n == n2) return; // connection already exists
+  }
 
   connection c1 = {n2, cost}; // n1 -> n2
   connection c2 = {n1, cost}; // n2 -> n1
