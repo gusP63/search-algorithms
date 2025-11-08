@@ -10,6 +10,8 @@ find_package(SDL3_ttf REQUIRED)
 
 add_executable(${PROJECT_NAME}
   src/main.c
+  src/graph.c
 )
 
 target_link_libraries(${PROJECT_NAME} SDL3::SDL3 SDL3_ttf::SDL3_ttf)
+
