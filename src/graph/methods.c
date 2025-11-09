@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "graph.h"
+#include "methods.h"
 
 node *createNode() {
   node *new = (node *)malloc(sizeof(node));
@@ -64,6 +64,8 @@ void addNodeTo(node_list *nodes, node *n) {
   for (int i = 0; i < nodes->count; i++) {
     newList[i] = nodes->elements[i];
   }
+
+  nodes->elements = NULL;
   if (nodes->elements) free(nodes->elements);
 
   newList[nodes->count] = n;
@@ -72,9 +74,9 @@ void addNodeTo(node_list *nodes, node *n) {
   nodes->elements = newList;
 }
 
-void showNodes(const node_list n) {
-  for (int i = 0; i < n.count; i++) {
-    node *current = n.elements[i];
+void showNodes(const node_list list) {
+  for (int i = 0; i < list.count; i++) {
+    node *current = list.elements[i];
 
     printf("node %c: ", current->id);
     printf("{");
@@ -82,6 +84,14 @@ void showNodes(const node_list n) {
       printf("{%c, %d}", current->connections->elements[j].n->id, current->connections->elements[j].cost);
     }
     printf("}\n");
+  }
+}
+
+void printSolution(const node_list list) {
+  printf("Solution: ");
+  for (int i = list.count - 1; i >= 0; i--) {
+    printf("%c", list.elements[i]->id);
+    if (i != 0) printf(" -> ");
   }
 }
 

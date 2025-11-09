@@ -1,14 +1,12 @@
-#include <stdbool.h>
+#ifndef types_H
+#define types_H
 
-#ifndef graph_H
-#define graph_H
+#include <stdbool.h>
 
 struct connection;
 struct connections_list;
 struct node;
 struct node_list;
-
-static char current_id = 'A';
 
 typedef struct connection {
   struct node *n;
@@ -33,14 +31,4 @@ typedef struct node_list { // for visual representation
   int count;
 } node_list;
 
-node *createNode();
-node_list *createNodeList();
-connections_list *createConnectionsList();
-
-void connectNodes(node *n1, node *n2, const int cost);
-void expandNode(node *n);
-void appendTo(connections_list *connections, const connection c);
-void addNodeTo(node_list *nodes, node *node);
-void showNodes(const node_list n);
-
-#endif // graph_H
+#endif // methods_H
