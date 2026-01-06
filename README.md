@@ -25,13 +25,10 @@
 ## Building the project
 
 *Dependencies*
-- CMake
-- SDL3
-- SDL3_ttf
+- zig
+- raylib
 
 ```bash
-mkdir build && cd build
-cmake ..
-make
+zig build run
 ```
 
