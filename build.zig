@@ -17,7 +17,7 @@ pub fn build(b: *std.Build) void {
 
     exe.linkLibC();
     exe.linkSystemLibrary("raylib");
-    // exe.linkFramework("");
+    exe.addLibraryPath(b.path("src/raylib/build/raylib"));
     b.installArtifact(exe);
 
     const run_step = b.step("run", "Run the app");

@@ -46,8 +46,8 @@ const Graph = struct {
             // std.debug.print("x: {}\n", .{x});
             if (i != 0 and x == 0) y += 1;
 
-            e.*.point.x = x * cell_width;
-            e.*.point.y = y * cell_width;
+            e.*.point.x = x;
+            e.*.point.y = y;
 
             e.*.edges = .{
                 // left
@@ -80,7 +80,7 @@ const Graph = struct {
 
     fn draw(self: *Graph) void {
         for (self.nodes) |node| {
-            rl.DrawRectangle(@intCast(node.point.x), @intCast(node.point.y), cell_width, cell_width, switch (node.cost) {
+            rl.DrawRectangle(@intCast(node.point.x * cell_width), @intCast(node.point.y * cell_width), cell_width, cell_width, switch (node.cost) {
                 .wall => rl.GRAY,
                 else => if (node.visited) rl.GREEN else rl.WHITE,
             });
@@ -93,53 +93,80 @@ fn dfs() void {}
 fn djikstra() void {}
 fn aStar() void {}
 
+fn randomNeighbor(current: **Node, rand: std.Random) void {
+    current.*.visited = true;
+
+    var i: u8 = rand.intRangeLessThan(u8, 0, current.*.edges.len);
+    while (true) {
+        if (current.*.edges[i]) |value| {
+            current.* = value;
+            return;
+        }
+
+        i = rand.intRangeLessThan(u8, 0, current.*.edges.len);
+    }
+}
+
 fn closest(current: *Node) *Node {
     var next: *Node = undefined;
-    var initial: bool = false;
-
-    for (&current.edges) |*e| {
-        if (e.* == null) continue;
-        if (!initial) {
-            next = e;
-            initial = true;
-        }
-
-        switch (e.*.?.cost) {
-            .infinity => current.cost,
-            // else =>
-        }
-
-        const newCost: u32 = current.cost + e.*.?.cost;
-        if (newCost <= e.*.?.cost)
-            e.*.?.cost = newCost;
-
-        if (e.*.?.cost < next.cost)
-            next = e;
-    }
-
     current.visited = true;
+    next.visited = true;
+    // var initial: bool = false;
+    //
+    // for (&current.edges) |*e| {
+    //     if (e.* == null) continue;
+    //     if (!initial) {
+    //         next = e;
+    //         initial = true;
+    //     }
+    //
+    //     switch (e.*.?.cost) {
+    //         .infinity => current.cost,
+    //         // else =>
+    //     }
+    //
+    //     const newCost: u32 = current.cost + e.*.?.cost;
+    //     if (newCost <= e.*.?.cost)
+    //         e.*.?.cost = newCost;
+    //
+    //     if (e.*.?.cost < next.cost)
+    //         next = e;
+    // }
+    //
+    // current.visited = true;
     return next;
 }
 
 pub fn main() !void {
+    var prng: std.Random.DefaultPrng = .init(blk: {
+        var seed: u64 = undefined;
+        try std.posix.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    const rand = prng.random();
+
     var graph = Graph{};
     graph.init();
 
     var current: *Node = &graph.nodes[0];
-    current.cost = .value{0};
+    current.cost = Cost{ .value = 0 };
 
-    const target: Point2D = .{ .x = 50, .y = 50 };
+    const target: Point2D = .{ .x = 2, .y = 2 };
 
     rl.InitWindow(width, height, "yo");
+    rl.SetTargetFPS(60);
     while (!rl.WindowShouldClose()) {
         rl.BeginDrawing();
         rl.ClearBackground(rl.WHITE);
 
-        if (!(current.point.x == target.x and current.point.y == target.y)) {
-            current = closest(current);
+        if ((current.point.x == target.x and current.point.y == target.y)) {
+            rl.DrawText("Found Goal!", @intCast(width / 2), @intCast(height / 2), 14, rl.RED);
+        } else {
+            randomNeighbor(&current, rand);
         }
 
         graph.draw();
+        rl.DrawRectangle(@intCast(current.point.x * cell_width), @intCast(current.point.y * cell_width), cell_width, cell_width, rl.BLACK);
 
         rl.EndDrawing();
     }
