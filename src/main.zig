@@ -14,7 +14,6 @@ const cell_width = width / rows;
 const Cost = union(enum) {
     value: u32,
     infinity,
-    wall,
 };
 
 const Point2D = struct {
@@ -25,8 +24,11 @@ const Point2D = struct {
 const Node = struct {
     point: Point2D = .{},
     visited: bool = false,
+    to_be_expanded: bool = false,
     cost: Cost = .infinity,
     edges: [4]?*Node = undefined,
+    parent: ?*Node = null,
+    is_wall: bool = false,
 };
 
 const Graph = struct {
@@ -46,30 +48,18 @@ const Graph = struct {
             // std.debug.print("x: {}\n", .{x});
             if (i != 0 and x == 0) y += 1;
 
-            e.*.point.x = x;
-            e.*.point.y = y;
+            e.point.x = x;
+            e.point.y = y;
 
-            e.*.edges = .{
-                // left
-                if (x == 0) null else switch (self.nodes[i - 1].cost) {
-                    .wall => null,
-                    else => &self.nodes[i - 1],
-                },
-                //right
-                if (x == cols - 1) null else switch (self.nodes[i + 1].cost) {
-                    .wall => null,
-                    else => &self.nodes[i + 1],
-                },
-                //up
-                if (y == 0) null else switch (self.nodes[i - rows].cost) {
-                    .wall => null,
-                    else => &self.nodes[i - rows],
-                },
+            e.edges = .{
                 //down
-                if (y == rows - 1) null else switch (self.nodes[i + rows].cost) {
-                    .wall => null,
-                    else => &self.nodes[i + rows],
-                },
+                if (y == rows - 1 or e.is_wall) null else &self.nodes[i + rows],
+                // left
+                if (x == 0 or e.is_wall) null else &self.nodes[i - 1],
+                //up
+                if (y == 0 or e.is_wall) null else &self.nodes[i - rows],
+                //right
+                if (x == cols - 1 or e.is_wall) null else &self.nodes[i + 1],
             };
 
             //test
@@ -80,30 +70,82 @@ const Graph = struct {
 
     fn draw(self: *Graph) void {
         for (self.nodes) |node| {
-            rl.DrawRectangle(@intCast(node.point.x * cell_width), @intCast(node.point.y * cell_width), cell_width, cell_width, switch (node.cost) {
-                .wall => rl.GRAY,
-                else => if (node.visited) rl.GREEN else rl.WHITE,
-            });
+            const color = if (node.is_wall) rl.GRAY else if (node.visited) rl.GREEN else rl.WHITE;
+
+            rl.DrawRectangle(@intCast(node.point.x * cell_width), @intCast(node.point.y * cell_width), cell_width, cell_width, color);
         }
+    }
+
+    fn len(self: Graph) usize {
+        return self.nodes.len;
     }
 };
 
-fn bfs() void {}
+fn bfs(searchData: *SearchData) !void {
+    searchData.current_node = try searchData.nodes_to_expand.pop();
+
+    const current = searchData.current_node;
+    for (current.edges) |e| {
+        if (e == null) continue;
+        if (e.?.visited or e.?.to_be_expanded) continue;
+
+        e.?.parent = current;
+        try searchData.nodes_to_expand.insert(e.?);
+        e.?.to_be_expanded = true;
+    }
+
+    current.visited = true;
+}
+
 fn dfs() void {}
+
+fn greedySearch(searchData: *SearchData) !void {
+    searchData.current_node = try searchData.nodes_to_expand.pop();
+
+    const current = searchData.current_node;
+    for (current.edges) |e| {
+        if (e == null) continue;
+        if (e.?.visited or e.?.to_be_expanded) continue;
+
+        e.?.parent = current;
+        try searchData.nodes_to_expand.insert(e.?);
+        e.?.to_be_expanded = true;
+    }
+    searchData.nodes_to_expand.sort(.lowerCostFirst);
+
+    current.visited = true;
+}
+
 fn djikstra() void {}
 fn aStar() void {}
 
-fn randomNeighbor(current: **Node, rand: std.Random) void {
-    current.*.visited = true;
+const Rand = struct {
+    // static variables
+    var prng: std.Random.DefaultPrng = undefined;
+    var random: std.Random = undefined;
 
-    var i: u8 = rand.intRangeLessThan(u8, 0, current.*.edges.len);
+    fn init() !void {
+        prng = .init(blk: {
+            var seed: u64 = undefined;
+            try std.posix.getrandom(std.mem.asBytes(&seed));
+            break :blk seed;
+        });
+
+        random = prng.random();
+    }
+};
+
+fn randomNeighbor(searchData: *SearchData) void {
+    searchData.current_node.visited = true;
+
+    var i: usize = Rand.random.intRangeLessThan(usize, 0, searchData.current_node.edges.len);
     while (true) {
-        if (current.*.edges[i]) |value| {
-            current.* = value;
+        if (searchData.current_node.edges[i]) |value| {
+            searchData.current_node = value;
             return;
         }
 
-        i = rand.intRangeLessThan(u8, 0, current.*.edges.len);
+        i = (i + 1) % searchData.current_node.edges.len;
     }
 }
 
@@ -137,53 +179,193 @@ fn closest(current: *Node) *Node {
     return next;
 }
 
+const FifoError = error{
+    ExceedMaxCapacity,
+    ElementDoesNotExist,
+};
+
+//TODO - use generics for type and max size
+const Fifo = struct {
+    nodes: [rows * cols]?*Node,
+    len: usize,
+
+    pub fn init(self: *Fifo) void {
+        for (&self.nodes) |*e| {
+            e.* = null;
+        }
+
+        self.len = 0;
+    }
+
+    fn insert(self: *Fifo, node: *Node) FifoError!void {
+        if (self.len >= rows * cols) return FifoError.ExceedMaxCapacity;
+
+        self.nodes[self.len] = node;
+        self.len += 1;
+    }
+
+    const SortType = enum { lowerCostFirst, higherCostFirst };
+
+    fn sort(self: *Fifo, how: SortType) void {
+        const FunWrappers = struct {
+            // swap if e1 lower than e2
+            fn lowerLast(e1: Node, e2: Node) bool {
+                switch (e1.cost) {
+                    .value => |v1| switch (e2.cost) {
+                        .value => |v2| return v1 < v2,
+                        .infinity => return true,
+                    },
+                    .infinity => return false,
+                }
+            }
+
+            // swap if e1 higher than e2
+            fn higherLast(e1: Node, e2: Node) bool {
+                switch (e1.cost) {
+                    .infinity => return true,
+                    .value => |v1| {
+                        switch (e2.cost) {
+                            .infinity => return false,
+                            .value => |v2| return v1 > v2,
+                        }
+                    },
+                }
+            }
+        };
+        switch (how) {
+            .lowerCostFirst => bubbleSort(self, FunWrappers.higherLast),
+            .higherCostFirst => bubbleSort(self, FunWrappers.lowerLast),
+        }
+    }
+
+    fn bubbleSort(self: *Fifo, shouldSwap: *const fn (e1: Node, e2: Node) bool) void {
+        var did_swap: bool = false;
+
+        while (true) {
+            did_swap = false;
+
+            var i: usize = 0;
+            while (i < self.len - 1) : (i += 1) {
+                if (shouldSwap(self.nodes[i].?.*, self.nodes[i + 1].?.*)) {
+                    const tmp: *Node = self.nodes[i].?;
+                    self.nodes[i] = self.nodes[i + 1];
+                    self.nodes[i + 1] = tmp;
+
+                    did_swap = true;
+                }
+            }
+
+            if (!did_swap) break;
+        }
+    }
+
+    fn pop(self: *Fifo) FifoError!*Node {
+        if (self.nodes[0] == null) return FifoError.ElementDoesNotExist;
+        const head: *Node = self.nodes[0].?;
+
+        var i: usize = 0;
+        while (i < self.len - 1) : (i += 1) {
+            self.nodes[i] = self.nodes[i + 1];
+        }
+        self.nodes[i] = null;
+        self.len -= 1;
+
+        return head;
+    }
+};
+
+const GenericError = error{PointDoesNotExist};
+
+const SearchData = struct {
+    current_node: *Node = undefined,
+    graph: Graph = .{},
+    nodes_to_expand: Fifo = undefined,
+    goal: Point2D = undefined,
+    // solution: []
+
+    fn init(self: *SearchData) void {
+        self.graph.init();
+        self.nodes_to_expand.init();
+    }
+
+    fn setStart(self: *SearchData, point: Point2D) GenericError!void {
+        if (point.x >= cols or point.x >= rows) return GenericError.PointDoesNotExist;
+
+        self.current_node = &self.graph.nodes[point.x + point.y * cols];
+        self.nodes_to_expand.insert(self.current_node) catch unreachable;
+    }
+
+    // update individual graph costs according to distance from goal
+    // lower cost means less distance to the goal
+    fn measureCosts(self: *SearchData) void {
+        for (&self.graph.nodes) |*e| {
+            var dX: i33 = @intCast(e.point.x);
+            dX -= @intCast(self.goal.x);
+            dX = @intCast(@abs(dX));
+            var dY: i33 = @intCast(e.point.y);
+            dY -= @intCast(self.goal.y);
+            dY = @intCast(@abs(dY));
+
+            e.cost = Cost{ .value = @intCast(dX + dY) };
+        }
+    }
+
+    fn reachedGoal(self: *SearchData) bool {
+        return self.current_node.point.x == self.goal.x and self.current_node.point.y == self.goal.y;
+    }
+};
+
+const AppData = struct {
+    texture_cheese: rl.Texture2D = undefined,
+    texture_rat: rl.Texture2D = undefined,
+
+    fn init(self: *AppData) !void {
+        try Rand.init();
+        rl.InitWindow(width, height, "yo");
+        rl.SetTargetFPS(60);
+
+        const image_rat: rl.Image = rl.LoadImage("mouse_right.png");
+        const image_cheese: rl.Image = rl.LoadImage("cheese.png");
+        defer rl.UnloadImage(image_rat);
+        defer rl.UnloadImage(image_cheese);
+
+        self.texture_cheese = rl.LoadTextureFromImage(image_cheese);
+        self.texture_rat = rl.LoadTextureFromImage(image_rat);
+    }
+
+    fn deinit(self: *AppData) void {
+        rl.UnloadTexture(self.texture_rat);
+        rl.UnloadTexture(self.texture_cheese);
+    }
+};
+
 pub fn main() !void {
-    var prng: std.Random.DefaultPrng = .init(blk: {
-        var seed: u64 = undefined;
-        try std.posix.getrandom(std.mem.asBytes(&seed));
-        break :blk seed;
-    });
-    const rand = prng.random();
+    var appData: AppData = .{};
+    try appData.init();
+    defer appData.deinit();
 
-    var graph = Graph{};
-    graph.init();
+    var searchData: SearchData = .{};
+    searchData.init();
 
-    var current: *Node = &graph.nodes[0];
-    current.cost = Cost{ .value = 0 };
+    try searchData.setStart(.{ .x = 0, .y = 0 });
+    searchData.goal = .{ .x = 50, .y = 50 };
+    searchData.measureCosts();
 
-    const target: Point2D = .{ .x = 50, .y = 50 };
-
-    rl.InitWindow(width, height, "yo");
-
-    const image_rat: rl.Image = rl.LoadImage("mouse_right.png");
-    defer rl.UnloadImage(image_rat);
-
-    const texture_rat: rl.Texture2D = rl.LoadTextureFromImage(image_rat);
-    defer rl.UnloadTexture(texture_rat);
-
-    const image_cheese: rl.Image = rl.LoadImage("cheese.png");
-    defer rl.UnloadImage(image_cheese);
-
-    const texture_cheese: rl.Texture2D = rl.LoadTextureFromImage(image_cheese);
-    defer rl.UnloadTexture(texture_cheese);
-
-    // rl.ImageResize(@intFromPtr(&texture_rat), cell_width, cell_width);
-    // rl.ImageResize(@intFromPtr(&texture_cheese), cell_width, cell_width);
-
-    rl.SetTargetFPS(60);
     while (!rl.WindowShouldClose()) {
         rl.BeginDrawing();
         rl.ClearBackground(rl.WHITE);
 
-        if ((current.point.x == target.x and current.point.y == target.y)) {
+        if (searchData.reachedGoal()) {
             rl.DrawText("Found Goal!", @intCast(width / 2), @intCast(height / 2), 14, rl.RED);
         } else {
-            randomNeighbor(&current, rand);
+            // randomNeighbor(&searchData);
+            // try bfs(&searchData);
+            try greedySearch(&searchData);
         }
 
-        graph.draw();
-        rl.DrawTexture(texture_rat, @intCast(current.point.x * cell_width), @intCast(current.point.y * cell_width), rl.BROWN);
-        rl.DrawTexture(texture_cheese, @intCast(target.x * cell_width), @intCast(target.y * cell_width), rl.YELLOW);
+        searchData.graph.draw();
+        rl.DrawTexture(appData.texture_cheese, @intCast(searchData.goal.x * cell_width), @intCast(searchData.goal.y * cell_width), rl.YELLOW);
+        rl.DrawTexture(appData.texture_rat, @intCast(searchData.current_node.point.x * cell_width), @intCast(searchData.current_node.point.y * cell_width), rl.BROWN);
 
         rl.EndDrawing();
     }
