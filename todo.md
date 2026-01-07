@@ -2,6 +2,7 @@
 - Add edit mode, where you can add/remove walls, set a start/end and save the maze to a file
 - Load mazes from files
 - Implement bfs,dfs,djikstra,a*,genetic algos,...
+- Add metrics to compare performance of algorithms
 - Ability to pause/reset
 - Ability to choose algorithm to use
 
