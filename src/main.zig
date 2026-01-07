@@ -3,8 +3,8 @@ const rl = @cImport({
     @cInclude("raylib.h");
 });
 
-const width = 600;
-const height = 600;
+const width = 800;
+const height = 800;
 
 const rows = 100;
 const cols = 100;
@@ -151,9 +151,25 @@ pub fn main() !void {
     var current: *Node = &graph.nodes[0];
     current.cost = Cost{ .value = 0 };
 
-    const target: Point2D = .{ .x = 2, .y = 2 };
+    const target: Point2D = .{ .x = 50, .y = 50 };
 
     rl.InitWindow(width, height, "yo");
+
+    const image_rat: rl.Image = rl.LoadImage("mouse_right.png");
+    defer rl.UnloadImage(image_rat);
+
+    const texture_rat: rl.Texture2D = rl.LoadTextureFromImage(image_rat);
+    defer rl.UnloadTexture(texture_rat);
+
+    const image_cheese: rl.Image = rl.LoadImage("cheese.png");
+    defer rl.UnloadImage(image_cheese);
+
+    const texture_cheese: rl.Texture2D = rl.LoadTextureFromImage(image_cheese);
+    defer rl.UnloadTexture(texture_cheese);
+
+    // rl.ImageResize(@intFromPtr(&texture_rat), cell_width, cell_width);
+    // rl.ImageResize(@intFromPtr(&texture_cheese), cell_width, cell_width);
+
     rl.SetTargetFPS(60);
     while (!rl.WindowShouldClose()) {
         rl.BeginDrawing();
@@ -166,7 +182,8 @@ pub fn main() !void {
         }
 
         graph.draw();
-        rl.DrawRectangle(@intCast(current.point.x * cell_width), @intCast(current.point.y * cell_width), cell_width, cell_width, rl.BLACK);
+        rl.DrawTexture(texture_rat, @intCast(current.point.x * cell_width), @intCast(current.point.y * cell_width), rl.BROWN);
+        rl.DrawTexture(texture_cheese, @intCast(target.x * cell_width), @intCast(target.y * cell_width), rl.YELLOW);
 
         rl.EndDrawing();
     }
