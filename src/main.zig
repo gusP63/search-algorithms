@@ -35,36 +35,48 @@ const Graph = struct {
     nodes: [rows * cols]Node = undefined,
 
     fn init(self: *Graph) void {
-        // self.nodes = [_]Node{} ** (rows * cols);
-        for (&self.nodes) |*e| {
-            e.* = Node{};
-        }
-
-        var x: u32 = 0;
         var y: u32 = 0;
+        var x: u32 = 0;
 
         for (&self.nodes, 0..) |*e, i| {
+            e.* = Node{};
             x = @intCast(i % cols);
-            // std.debug.print("x: {}\n", .{x});
-            if (i != 0 and x == 0) y += 1;
+            y = if (i != 0 and x == 0) y + 1 else y;
 
             e.point.x = x;
             e.point.y = y;
+        }
+    }
+
+    fn updateEdges(self: *Graph) void {
+        for (&self.nodes, 0..) |*e, i| {
+            if (e.is_wall) {
+                e.edges = [_]?*Node{null} ** e.edges.len;
+                continue;
+            }
+            var tmp: Node = Node{ .is_wall = true };
+
+            const x = e.point.x;
+            const y = e.point.y;
+            const northwest: *Node = if (x == 0 or y == 0) &tmp else &self.nodes[i - rows - 1];
+            const west: *Node = if (x == 0) &tmp else &self.nodes[i - 1];
+            const southwest: *Node = if (x == 0 or y == rows - 1) &tmp else &self.nodes[i + rows - 1];
+            const south: *Node = if (y == rows - 1) &tmp else &self.nodes[i + rows];
+            const southeast: *Node = if (x == cols - 1 or y == rows - 1) &tmp else &self.nodes[i + rows + 1];
+            const east: *Node = if (x == cols - 1) &tmp else &self.nodes[i + 1];
+            const northeast: *Node = if (x == cols - 1 or y == 0) &tmp else &self.nodes[i - rows + 1];
+            const north: *Node = if (y == 0) &tmp else &self.nodes[i - 1];
 
             e.edges = .{
-                if (x == 0 or y == 0 or e.is_wall) null else &self.nodes[i - rows - 1], // northwest
-                if (x == 0 or e.is_wall) null else &self.nodes[i - 1], // west
-                if (x == 0 or y == rows - 1 or e.is_wall) null else &self.nodes[i + rows - 1], // southwest
-                if (y == rows - 1 or e.is_wall) null else &self.nodes[i + rows], // south
-                if (x == cols - 1 or y == rows - 1 or e.is_wall) null else &self.nodes[i + rows + 1], // southeast
-                if (x == cols - 1 or e.is_wall) null else &self.nodes[i + 1], // east
-                if (x == cols - 1 or y == 0 or e.is_wall) null else &self.nodes[i - rows + 1], // northeast
-                if (y == 0 or e.is_wall) null else &self.nodes[i - rows], // north
+                if (northwest.is_wall) null else northwest,
+                if (west.is_wall) null else west,
+                if (southwest.is_wall) null else southwest,
+                if (south.is_wall) null else south,
+                if (southeast.is_wall) null else southeast,
+                if (east.is_wall) null else east,
+                if (northeast.is_wall) null else northeast,
+                if (north.is_wall) null else north,
             };
-
-            //test
-            // if (x == 0) e.*.cost = .wall;
-            // if (x == cols - 1) e.*.visited = true;
         }
     }
 
@@ -315,7 +327,10 @@ const SearchData = struct {
     }
 };
 
+const AppState = enum { setup, running, done };
+
 const AppData = struct {
+    state: AppState = .setup,
     texture_cheese: rl.Texture2D = undefined,
     texture_rat: rl.Texture2D = undefined,
 
@@ -352,15 +367,40 @@ pub fn main() !void {
     searchData.measureCosts();
 
     while (!rl.WindowShouldClose()) {
+        // drawing
         rl.BeginDrawing();
         rl.ClearBackground(rl.WHITE);
 
-        if (searchData.reachedGoal()) {
-            rl.DrawText("Found Goal!", @intCast(width / 2), @intCast(height / 2), 14, rl.RED);
-        } else {
-            // randomNeighbor(&searchData);
-            // try bfs(&searchData);
-            try greedySearch(&searchData);
+        switch (appData.state) {
+            .setup => {
+                if (rl.IsMouseButtonDown(rl.MOUSE_BUTTON_LEFT)) {
+                    const x = @divFloor(rl.GetMouseX(), cell_width);
+                    const y = @divFloor(rl.GetMouseY(), cell_width);
+                    const index: usize = @intCast(x + y * rows);
+                    if (index < 0 or index >= rows * cols) return GenericError.PointDoesNotExist;
+
+                    searchData.graph.nodes[index].is_wall = true;
+                }
+
+                if (rl.IsKeyReleased(rl.KEY_SPACE)) {
+                    searchData.graph.updateEdges();
+                    appData.state = .running;
+                }
+            },
+            .running => blk: {
+                if (searchData.reachedGoal()) {
+                    appData.state = .done;
+                    break :blk;
+                }
+
+                // randomNeighbor(&searchData);
+                // try bfs(&searchData);
+                try greedySearch(&searchData);
+            },
+            .done => {
+                rl.DrawText("Found Goal!", @intCast(width / 2), @intCast(height / 2), 14, rl.RED);
+                //show solution
+            },
         }
 
         searchData.graph.draw();
