@@ -41,6 +41,7 @@ const Graph = struct {
         for (&self.nodes, 0..) |*e, i| {
             e.* = Node{};
             x = @intCast(i % cols);
+            std.debug.print("{}\n", .{x});
             y = if (i != 0 and x == 0) y + 1 else y;
 
             e.point.x = x;
@@ -65,7 +66,7 @@ const Graph = struct {
             const southeast: *Node = if (x == cols - 1 or y == rows - 1) &tmp else &self.nodes[i + rows + 1];
             const east: *Node = if (x == cols - 1) &tmp else &self.nodes[i + 1];
             const northeast: *Node = if (x == cols - 1 or y == 0) &tmp else &self.nodes[i - rows + 1];
-            const north: *Node = if (y == 0) &tmp else &self.nodes[i - 1];
+            const north: *Node = if (y == 0) &tmp else &self.nodes[i - rows];
 
             e.edges = .{
                 if (north.is_wall) null else north,
@@ -88,6 +89,14 @@ const Graph = struct {
         }
     }
 
+    fn reset(self: *Graph) void {
+        for (&self.nodes) |*node| {
+            node.visited = false;
+            node.to_be_expanded = false;
+            node.parent = null;
+        }
+    }
+
     fn len(self: Graph) usize {
         return self.nodes.len;
     }
@@ -95,16 +104,16 @@ const Graph = struct {
 
 const SearchError = error{ NoSolutionFound, InsertionError };
 
-fn bfs(searchData: *SearchData) SearchError!void {
-    searchData.current_node = searchData.nodes_to_expand.pop() catch return SearchError.NoSolutionFound;
+fn bfs(search_data: *SearchData) SearchError!void {
+    search_data.current_node = search_data.nodes_to_expand.pop() catch return SearchError.NoSolutionFound;
 
-    const current = searchData.current_node;
+    const current = search_data.current_node;
     for (current.edges) |e| {
         if (e == null) continue;
         if (e.?.visited or e.?.to_be_expanded) continue;
 
         e.?.parent = current;
-        searchData.nodes_to_expand.insert(e.?) catch return SearchError.InsertionError;
+        search_data.nodes_to_expand.insert(e.?) catch return SearchError.InsertionError;
         e.?.to_be_expanded = true;
     }
 
@@ -113,8 +122,8 @@ fn bfs(searchData: *SearchData) SearchError!void {
 
 fn dfs() void {}
 
-fn greedySearch(searchData: *SearchData) SearchError!void {
-    const current = searchData.current_node;
+fn greedySearch(search_data: *SearchData) SearchError!void {
+    const current = search_data.current_node;
     var next: ?*Node = null;
 
     for (current.edges) |e| {
@@ -129,41 +138,41 @@ fn greedySearch(searchData: *SearchData) SearchError!void {
     if (next == null)
         next = current.parent;
 
-    searchData.nodes_to_expand.sort(.lowerCostFirst);
+    search_data.nodes_to_expand.sort(.lowerCostFirst);
 
     current.visited = true;
     next.?.parent = current;
 
-    searchData.current_node = next.?;
+    search_data.current_node = next.?;
 }
 
-fn delayedGratification(searchData: *SearchData) SearchError!void {
-    searchData.current_node = searchData.nodes_to_expand.pop() catch return SearchError.NoSolutionFound;
+fn delayedGratification(search_data: *SearchData) SearchError!void {
+    search_data.current_node = search_data.nodes_to_expand.pop() catch return SearchError.NoSolutionFound;
 
-    const current = searchData.current_node;
+    const current = search_data.current_node;
     for (current.edges) |e| {
         if (e == null) continue;
         if (e.?.visited or e.?.to_be_expanded) continue;
 
         e.?.parent = current;
-        searchData.nodes_to_expand.insert(e.?) catch return SearchError.InsertionError;
+        search_data.nodes_to_expand.insert(e.?) catch return SearchError.InsertionError;
         e.?.to_be_expanded = true;
     }
-    searchData.nodes_to_expand.sort(.higherCostFirst);
+    search_data.nodes_to_expand.sort(.higherCostFirst);
 
     current.visited = true;
 }
 
-fn djikstra(searchData: *SearchData) SearchError!void {
-    searchData.current_node = searchData.nodes_to_expand.pop() catch return SearchError.NoSolutionFound;
+fn djikstra(search_data: *SearchData) SearchError!void {
+    search_data.current_node = search_data.nodes_to_expand.pop() catch return SearchError.NoSolutionFound;
 
-    const current = searchData.current_node;
+    const current = search_data.current_node;
     for (current.edges) |e| {
         if (e == null) continue;
         if (e.?.visited or e.?.to_be_expanded) continue;
 
         e.?.parent = current;
-        searchData.nodes_to_expand.insertSorted(e.?) catch return SearchError.InsertionError;
+        search_data.nodes_to_expand.insertSorted(e.?) catch return SearchError.InsertionError;
         e.?.to_be_expanded = true;
     }
 
@@ -188,17 +197,17 @@ const Rand = struct {
     }
 };
 
-fn randomNeighbor(searchData: *SearchData) void {
-    searchData.current_node.visited = true;
+fn randomNeighbor(search_data: *SearchData) void {
+    search_data.current_node.visited = true;
 
-    var i: usize = Rand.random.intRangeLessThan(usize, 0, searchData.current_node.edges.len);
+    var i: usize = Rand.random.intRangeLessThan(usize, 0, search_data.current_node.edges.len);
     while (true) {
-        if (searchData.current_node.edges[i]) |value| {
-            searchData.current_node = value;
+        if (search_data.current_node.edges[i]) |value| {
+            search_data.current_node = value;
             return;
         }
 
-        i = (i + 1) % searchData.current_node.edges.len;
+        i = (i + 1) % search_data.current_node.edges.len;
     }
 }
 
@@ -255,6 +264,10 @@ const Fifo = struct {
 
         self.nodes[self.len] = node;
         self.len += 1;
+    }
+
+    fn clear(self: *Fifo) void {
+        self.init();
     }
 
     // lowest first
@@ -370,6 +383,11 @@ const SearchData = struct {
         self.nodes_to_expand.init();
     }
 
+    fn reset(self: *SearchData) void {
+        self.nodes_to_expand.clear();
+        self.graph.reset();
+    }
+
     fn setStart(self: *SearchData, point: Point2D) GenericError!void {
         if (point.x >= cols or point.x >= rows) return GenericError.PointDoesNotExist;
 
@@ -421,63 +439,73 @@ const AppData = struct {
     fn deinit(self: *AppData) void {
         rl.UnloadTexture(self.texture_rat);
         rl.UnloadTexture(self.texture_cheese);
+        rl.CloseWindow();
     }
 };
 
 pub fn main() !void {
-    var appData: AppData = .{};
-    try appData.init();
-    defer appData.deinit();
+    var app_data: AppData = .{};
+    try app_data.init();
+    defer app_data.deinit();
 
-    var searchData: SearchData = .{};
-    searchData.init();
+    var search_data: SearchData = .{};
+    search_data.init();
 
-    try searchData.setStart(.{ .x = 10, .y = 10 });
-    searchData.goal = .{ .x = 90, .y = 90 };
-    searchData.measureCosts();
+    const initial_start: Point2D = .{ .x = 3, .y = 3 };
+    try search_data.setStart(initial_start);
+    search_data.goal = .{ .x = 90, .y = 90 };
+    search_data.measureCosts();
 
     while (!rl.WindowShouldClose()) {
         // drawing
         rl.BeginDrawing();
+        defer rl.EndDrawing();
         rl.ClearBackground(rl.WHITE);
 
-        searchData.graph.draw();
-        rl.DrawTexture(appData.texture_cheese, @intCast(searchData.goal.x * cell_width), @intCast(searchData.goal.y * cell_width), rl.YELLOW);
-        rl.DrawTexture(appData.texture_rat, @intCast(searchData.current_node.point.x * cell_width), @intCast(searchData.current_node.point.y * cell_width), rl.BROWN);
-
-        switch (appData.state) {
+        search_data.graph.draw();
+        rl.DrawTexture(app_data.texture_cheese, @intCast(search_data.goal.x * cell_width), @intCast(search_data.goal.y * cell_width), rl.YELLOW);
+        rl.DrawTexture(app_data.texture_rat, @intCast(search_data.current_node.point.x * cell_width), @intCast(search_data.current_node.point.y * cell_width), rl.BROWN);
+        state_switch: switch (app_data.state) {
             .setup => {
                 if (rl.IsMouseButtonDown(rl.MOUSE_BUTTON_LEFT)) {
                     const x = @divFloor(rl.GetMouseX(), cell_width);
                     const y = @divFloor(rl.GetMouseY(), cell_width);
-                    const index: usize = @intCast(x + y * rows);
-                    if (index < 0 or index >= rows * cols) return GenericError.PointDoesNotExist;
+                    if (x < 0 or y < 0) break :state_switch;
 
-                    searchData.graph.nodes[index].is_wall = true;
+                    const index: usize = @intCast(x + y * rows);
+                    if (index >= rows * cols) break :state_switch;
+
+                    search_data.graph.nodes[index].is_wall = true;
                 }
 
-                if (rl.IsKeyReleased(rl.KEY_SPACE)) {
-                    searchData.graph.updateEdges();
-                    appData.state = .running;
+                if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
+                    search_data.graph.updateEdges();
+                    app_data.state = .running;
                 }
             },
             .running => {
                 const current_func: *const fn (*SearchData) SearchError!void = djikstra;
 
-                current_func(&searchData) catch {
-                    searchData.found_a_solution = false;
-                    appData.state = .done;
+                current_func(&search_data) catch {
+                    search_data.found_a_solution = false;
+                    app_data.state = .done;
                 };
 
-                if (searchData.reachedGoal()) {
-                    searchData.found_a_solution = true;
-                    appData.state = .done;
+                if (search_data.reachedGoal()) {
+                    search_data.found_a_solution = true;
+                    app_data.state = .done;
+                }
+
+                if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
+                    search_data.reset();
+                    try search_data.setStart(initial_start);
+                    app_data.state = .setup;
                 }
             },
             .done => {
                 //show solution in dark green
-                if (searchData.found_a_solution) {
-                    var iterator: *Node = searchData.current_node;
+                if (search_data.found_a_solution) {
+                    var iterator: *Node = search_data.current_node;
                     while (iterator.parent != null) {
                         rl.DrawRectangle(@intCast(iterator.point.x * cell_width), @intCast(iterator.point.y * cell_width), cell_width, cell_width, rl.DARKGREEN);
                         iterator = iterator.parent.?;
@@ -487,11 +515,13 @@ pub fn main() !void {
                 } else {
                     rl.DrawText("Could not find a solution... :(", @intCast(14), @intCast(14), 24, rl.RED);
                 }
+
+                if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
+                    search_data.reset();
+                    try search_data.setStart(initial_start);
+                    app_data.state = .setup;
+                }
             },
         }
-
-        rl.EndDrawing();
     }
-
-    rl.CloseWindow();
 }
