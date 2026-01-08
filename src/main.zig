@@ -89,11 +89,14 @@ const Graph = struct {
         }
     }
 
-    fn reset(self: *Graph) void {
+    fn reset(self: *Graph, keep_walls: bool) void {
         for (&self.nodes) |*node| {
             node.visited = false;
             node.to_be_expanded = false;
             node.parent = null;
+
+            if (!keep_walls)
+                node.is_wall = false;
         }
     }
 
@@ -380,19 +383,23 @@ const SearchData = struct {
 
     fn init(self: *SearchData) void {
         self.graph.init();
+
         self.nodes_to_expand.init();
+        self.current_node = &self.graph.nodes[0];
+        self.nodes_to_expand.insert(self.current_node) catch unreachable; // not great practice
     }
 
-    fn reset(self: *SearchData) void {
+    fn reset(self: *SearchData, keep_walls: bool) void {
+        self.graph.reset(keep_walls);
+
         self.nodes_to_expand.clear();
-        self.graph.reset();
     }
 
     fn setStart(self: *SearchData, point: Point2D) GenericError!void {
         if (point.x >= cols or point.x >= rows) return GenericError.PointDoesNotExist;
-
         self.current_node = &self.graph.nodes[point.x + point.y * cols];
-        self.nodes_to_expand.insert(self.current_node) catch unreachable;
+        self.nodes_to_expand.clear();
+        self.nodes_to_expand.insert(self.current_node) catch unreachable; // bad practice, refactor later
     }
 
     // update individual graph costs according to distance from goal
@@ -443,6 +450,16 @@ const AppData = struct {
     }
 };
 
+fn positionIsValid(point: Point2D) bool {
+    const x = point.x;
+    const y = point.y;
+    return x >= 0 and y >= 0 and (x + y * rows) < rows * cols;
+}
+
+fn getArrayIndex(from: Point2D) usize {
+    return @intCast(from.x + from.y * rows);
+}
+
 pub fn main() !void {
     var app_data: AppData = .{};
     try app_data.init();
@@ -451,7 +468,7 @@ pub fn main() !void {
     var search_data: SearchData = .{};
     search_data.init();
 
-    const initial_start: Point2D = .{ .x = 3, .y = 3 };
+    const initial_start: Point2D = .{ .x = 0, .y = 0 };
     try search_data.setStart(initial_start);
     search_data.goal = .{ .x = 90, .y = 90 };
     search_data.measureCosts();
@@ -465,23 +482,28 @@ pub fn main() !void {
         search_data.graph.draw();
         rl.DrawTexture(app_data.texture_cheese, @intCast(search_data.goal.x * cell_width), @intCast(search_data.goal.y * cell_width), rl.YELLOW);
         rl.DrawTexture(app_data.texture_rat, @intCast(search_data.current_node.point.x * cell_width), @intCast(search_data.current_node.point.y * cell_width), rl.BROWN);
-        state_switch: switch (app_data.state) {
+        switch (app_data.state) {
             .setup => {
-                if (rl.IsMouseButtonDown(rl.MOUSE_BUTTON_LEFT)) {
-                    const x = @divFloor(rl.GetMouseX(), cell_width);
-                    const y = @divFloor(rl.GetMouseY(), cell_width);
-                    if (x < 0 or y < 0) break :state_switch;
+                const x = @divFloor(rl.GetMouseX(), cell_width);
+                const y = @divFloor(rl.GetMouseY(), cell_width);
+                const mousePos: Point2D = .{ .x = @intCast(x), .y = @intCast(y) };
 
-                    const index: usize = @intCast(x + y * rows);
-                    if (index >= rows * cols) break :state_switch;
-
+                if (rl.IsMouseButtonDown(rl.MOUSE_BUTTON_LEFT) and positionIsValid(mousePos)) {
+                    const index: usize = getArrayIndex(mousePos);
                     search_data.graph.nodes[index].is_wall = true;
+                }
+
+                if (rl.IsMouseButtonDown(rl.MOUSE_BUTTON_RIGHT) and positionIsValid(mousePos)) {
+                    try search_data.setStart(mousePos);
                 }
 
                 if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
                     search_data.graph.updateEdges();
                     app_data.state = .running;
                 }
+
+                if (rl.IsKeyReleased(rl.KEY_BACKSPACE))
+                    search_data.reset(false);
             },
             .running => {
                 const current_func: *const fn (*SearchData) SearchError!void = djikstra;
@@ -497,7 +519,7 @@ pub fn main() !void {
                 }
 
                 if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
-                    search_data.reset();
+                    search_data.reset(true);
                     try search_data.setStart(initial_start);
                     app_data.state = .setup;
                 }
@@ -517,7 +539,7 @@ pub fn main() !void {
                 }
 
                 if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
-                    search_data.reset();
+                    search_data.reset(true);
                     try search_data.setStart(initial_start);
                     app_data.state = .setup;
                 }
