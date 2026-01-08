@@ -112,6 +112,30 @@ fn bfs(searchData: *SearchData) !void {
 fn dfs() void {}
 
 fn greedySearch(searchData: *SearchData) !void {
+    const current = searchData.current_node;
+    var next: ?*Node = null;
+
+    for (current.edges) |e| {
+        if (e == null) continue;
+        if (e.?.visited) continue;
+
+        if (next == null)
+            next = e.?;
+        if (e.?.cost.value < next.?.cost.value)
+            next = e.?;
+    }
+    if (next == null)
+        next = current.parent;
+
+    searchData.nodes_to_expand.sort(.lowerCostFirst);
+
+    current.visited = true;
+    next.?.parent = current;
+
+    searchData.current_node = next.?;
+}
+
+fn delayedGratification(searchData: *SearchData) !void {
     searchData.current_node = try searchData.nodes_to_expand.pop();
 
     const current = searchData.current_node;
@@ -123,12 +147,28 @@ fn greedySearch(searchData: *SearchData) !void {
         try searchData.nodes_to_expand.insert(e.?);
         e.?.to_be_expanded = true;
     }
-    searchData.nodes_to_expand.sort(.lowerCostFirst);
+    searchData.nodes_to_expand.sort(.higherCostFirst);
 
     current.visited = true;
 }
 
-fn djikstra() void {}
+fn djikstra(searchData: *SearchData) !void {
+    searchData.current_node = try searchData.nodes_to_expand.pop();
+
+    const current = searchData.current_node;
+    for (current.edges) |e| {
+        if (e == null) continue;
+        if (e.?.visited or e.?.to_be_expanded) continue;
+
+        e.?.parent = current;
+        try searchData.nodes_to_expand.insertSorted(e.?);
+        // try searchData.nodes_to_expand.insert(e.?);
+        e.?.to_be_expanded = true;
+    }
+    // searchData.nodes_to_expand.sort(.lowerCostFirst);
+
+    current.visited = true;
+}
 fn aStar() void {}
 
 const Rand = struct {
@@ -213,6 +253,33 @@ const Fifo = struct {
         if (self.len >= rows * cols) return FifoError.ExceedMaxCapacity;
 
         self.nodes[self.len] = node;
+        self.len += 1;
+    }
+
+    // lowest first
+    fn insertSorted(self: *Fifo, node: *Node) FifoError!void {
+        if (self.len >= rows * cols) return FifoError.ExceedMaxCapacity;
+        if (self.len == 0) {
+            try self.insert(node);
+            return;
+        }
+
+        var index_to_insert: usize = 0;
+        for (self.nodes[0..self.len], 0..) |e, i| {
+            index_to_insert = i;
+            const next_is_bigger: bool = switch (e.?.cost) {
+                .infinity => true,
+                .value => |v| v >= node.cost.value,
+            };
+            if (next_is_bigger)
+                break;
+        }
+
+        var i: usize = self.len + 1;
+        while (i > index_to_insert) : (i -= 1)
+            self.nodes[i] = self.nodes[i - 1];
+
+        self.nodes[index_to_insert] = node;
         self.len += 1;
     }
 
@@ -337,7 +404,7 @@ const AppData = struct {
     fn init(self: *AppData) !void {
         try Rand.init();
         rl.InitWindow(width, height, "yo");
-        rl.SetTargetFPS(60);
+        // rl.SetTargetFPS(60);
 
         const image_rat: rl.Image = rl.LoadImage("mouse_right.png");
         const image_cheese: rl.Image = rl.LoadImage("cheese.png");
@@ -363,7 +430,7 @@ pub fn main() !void {
     searchData.init();
 
     try searchData.setStart(.{ .x = 0, .y = 0 });
-    searchData.goal = .{ .x = 50, .y = 50 };
+    searchData.goal = .{ .x = 90, .y = 90 };
     searchData.measureCosts();
 
     while (!rl.WindowShouldClose()) {
@@ -395,7 +462,9 @@ pub fn main() !void {
 
                 // randomNeighbor(&searchData);
                 // try bfs(&searchData);
-                try greedySearch(&searchData);
+                // try delayedGratification(&searchData);
+                // try greedySearch(&searchData);
+                try djikstra(&searchData);
             },
             .done => {
                 rl.DrawText("Found Goal!", @intCast(width / 2), @intCast(height / 2), 14, rl.RED);
