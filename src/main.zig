@@ -68,14 +68,14 @@ const Graph = struct {
             const north: *Node = if (y == 0) &tmp else &self.nodes[i - 1];
 
             e.edges = .{
-                if (northwest.is_wall) null else northwest,
-                if (west.is_wall) null else west,
-                if (southwest.is_wall) null else southwest,
-                if (south.is_wall) null else south,
-                if (southeast.is_wall) null else southeast,
-                if (east.is_wall) null else east,
-                if (northeast.is_wall) null else northeast,
                 if (north.is_wall) null else north,
+                if (south.is_wall) null else south,
+                if (west.is_wall) null else west,
+                if (east.is_wall) null else east,
+                if (northwest.is_wall) null else northwest,
+                if (southwest.is_wall) null else southwest,
+                if (southeast.is_wall) null else southeast,
+                if (northeast.is_wall) null else northeast,
             };
         }
     }
@@ -93,8 +93,10 @@ const Graph = struct {
     }
 };
 
-fn bfs(searchData: *SearchData) !void {
-    searchData.current_node = try searchData.nodes_to_expand.pop();
+const SearchError = error{ NoSolutionFound, InsertionError };
+
+fn bfs(searchData: *SearchData) SearchError!void {
+    searchData.current_node = searchData.nodes_to_expand.pop() catch return SearchError.NoSolutionFound;
 
     const current = searchData.current_node;
     for (current.edges) |e| {
@@ -102,7 +104,7 @@ fn bfs(searchData: *SearchData) !void {
         if (e.?.visited or e.?.to_be_expanded) continue;
 
         e.?.parent = current;
-        try searchData.nodes_to_expand.insert(e.?);
+        searchData.nodes_to_expand.insert(e.?) catch return SearchError.InsertionError;
         e.?.to_be_expanded = true;
     }
 
@@ -111,7 +113,7 @@ fn bfs(searchData: *SearchData) !void {
 
 fn dfs() void {}
 
-fn greedySearch(searchData: *SearchData) !void {
+fn greedySearch(searchData: *SearchData) SearchError!void {
     const current = searchData.current_node;
     var next: ?*Node = null;
 
@@ -135,8 +137,8 @@ fn greedySearch(searchData: *SearchData) !void {
     searchData.current_node = next.?;
 }
 
-fn delayedGratification(searchData: *SearchData) !void {
-    searchData.current_node = try searchData.nodes_to_expand.pop();
+fn delayedGratification(searchData: *SearchData) SearchError!void {
+    searchData.current_node = searchData.nodes_to_expand.pop() catch return SearchError.NoSolutionFound;
 
     const current = searchData.current_node;
     for (current.edges) |e| {
@@ -144,7 +146,7 @@ fn delayedGratification(searchData: *SearchData) !void {
         if (e.?.visited or e.?.to_be_expanded) continue;
 
         e.?.parent = current;
-        try searchData.nodes_to_expand.insert(e.?);
+        searchData.nodes_to_expand.insert(e.?) catch return SearchError.InsertionError;
         e.?.to_be_expanded = true;
     }
     searchData.nodes_to_expand.sort(.higherCostFirst);
@@ -152,8 +154,8 @@ fn delayedGratification(searchData: *SearchData) !void {
     current.visited = true;
 }
 
-fn djikstra(searchData: *SearchData) !void {
-    searchData.current_node = try searchData.nodes_to_expand.pop();
+fn djikstra(searchData: *SearchData) SearchError!void {
+    searchData.current_node = searchData.nodes_to_expand.pop() catch return SearchError.NoSolutionFound;
 
     const current = searchData.current_node;
     for (current.edges) |e| {
@@ -161,14 +163,13 @@ fn djikstra(searchData: *SearchData) !void {
         if (e.?.visited or e.?.to_be_expanded) continue;
 
         e.?.parent = current;
-        try searchData.nodes_to_expand.insertSorted(e.?);
-        // try searchData.nodes_to_expand.insert(e.?);
+        searchData.nodes_to_expand.insertSorted(e.?) catch return SearchError.InsertionError;
         e.?.to_be_expanded = true;
     }
-    // searchData.nodes_to_expand.sort(.lowerCostFirst);
 
     current.visited = true;
 }
+
 fn aStar() void {}
 
 const Rand = struct {
@@ -360,6 +361,8 @@ const SearchData = struct {
     graph: Graph = .{},
     nodes_to_expand: Fifo = undefined,
     goal: Point2D = undefined,
+    found_a_solution: bool = false,
+
     // solution: []
 
     fn init(self: *SearchData) void {
@@ -429,7 +432,7 @@ pub fn main() !void {
     var searchData: SearchData = .{};
     searchData.init();
 
-    try searchData.setStart(.{ .x = 0, .y = 0 });
+    try searchData.setStart(.{ .x = 10, .y = 10 });
     searchData.goal = .{ .x = 90, .y = 90 };
     searchData.measureCosts();
 
@@ -437,6 +440,10 @@ pub fn main() !void {
         // drawing
         rl.BeginDrawing();
         rl.ClearBackground(rl.WHITE);
+
+        searchData.graph.draw();
+        rl.DrawTexture(appData.texture_cheese, @intCast(searchData.goal.x * cell_width), @intCast(searchData.goal.y * cell_width), rl.YELLOW);
+        rl.DrawTexture(appData.texture_rat, @intCast(searchData.current_node.point.x * cell_width), @intCast(searchData.current_node.point.y * cell_width), rl.BROWN);
 
         switch (appData.state) {
             .setup => {
@@ -454,27 +461,34 @@ pub fn main() !void {
                     appData.state = .running;
                 }
             },
-            .running => blk: {
-                if (searchData.reachedGoal()) {
-                    appData.state = .done;
-                    break :blk;
-                }
+            .running => {
+                const current_func: *const fn (*SearchData) SearchError!void = djikstra;
 
-                // randomNeighbor(&searchData);
-                // try bfs(&searchData);
-                // try delayedGratification(&searchData);
-                // try greedySearch(&searchData);
-                try djikstra(&searchData);
+                current_func(&searchData) catch {
+                    searchData.found_a_solution = false;
+                    appData.state = .done;
+                };
+
+                if (searchData.reachedGoal()) {
+                    searchData.found_a_solution = true;
+                    appData.state = .done;
+                }
             },
             .done => {
-                rl.DrawText("Found Goal!", @intCast(width / 2), @intCast(height / 2), 14, rl.RED);
-                //show solution
+                //show solution in dark green
+                if (searchData.found_a_solution) {
+                    var iterator: *Node = searchData.current_node;
+                    while (iterator.parent != null) {
+                        rl.DrawRectangle(@intCast(iterator.point.x * cell_width), @intCast(iterator.point.y * cell_width), cell_width, cell_width, rl.DARKGREEN);
+                        iterator = iterator.parent.?;
+                    }
+
+                    rl.DrawText("Found Solution!", @intCast(14), @intCast(14), 24, rl.RED);
+                } else {
+                    rl.DrawText("Could not find a solution... :(", @intCast(14), @intCast(14), 24, rl.RED);
+                }
             },
         }
-
-        searchData.graph.draw();
-        rl.DrawTexture(appData.texture_cheese, @intCast(searchData.goal.x * cell_width), @intCast(searchData.goal.y * cell_width), rl.YELLOW);
-        rl.DrawTexture(appData.texture_rat, @intCast(searchData.current_node.point.x * cell_width), @intCast(searchData.current_node.point.y * cell_width), rl.BROWN);
 
         rl.EndDrawing();
     }
