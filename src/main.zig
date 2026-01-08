@@ -26,7 +26,7 @@ const Node = struct {
     visited: bool = false,
     to_be_expanded: bool = false,
     cost: Cost = .infinity,
-    edges: [4]?*Node = undefined,
+    edges: [8]?*Node = undefined,
     parent: ?*Node = null,
     is_wall: bool = false,
 };
@@ -52,14 +52,14 @@ const Graph = struct {
             e.point.y = y;
 
             e.edges = .{
-                //down
-                if (y == rows - 1 or e.is_wall) null else &self.nodes[i + rows],
-                // left
-                if (x == 0 or e.is_wall) null else &self.nodes[i - 1],
-                //up
-                if (y == 0 or e.is_wall) null else &self.nodes[i - rows],
-                //right
-                if (x == cols - 1 or e.is_wall) null else &self.nodes[i + 1],
+                if (x == 0 or y == 0 or e.is_wall) null else &self.nodes[i - rows - 1], // northwest
+                if (x == 0 or e.is_wall) null else &self.nodes[i - 1], // west
+                if (x == 0 or y == rows - 1 or e.is_wall) null else &self.nodes[i + rows - 1], // southwest
+                if (y == rows - 1 or e.is_wall) null else &self.nodes[i + rows], // south
+                if (x == cols - 1 or y == rows - 1 or e.is_wall) null else &self.nodes[i + rows + 1], // southeast
+                if (x == cols - 1 or e.is_wall) null else &self.nodes[i + 1], // east
+                if (x == cols - 1 or y == 0 or e.is_wall) null else &self.nodes[i - rows + 1], // northeast
+                if (y == 0 or e.is_wall) null else &self.nodes[i - rows], // north
             };
 
             //test
