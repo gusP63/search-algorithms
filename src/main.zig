@@ -468,8 +468,8 @@ pub fn main() !void {
     var search_data: SearchData = .{};
     search_data.init();
 
-    const initial_start: Point2D = .{ .x = 0, .y = 0 };
-    try search_data.setStart(initial_start);
+    var selected_start_pos: Point2D = .{ .x = 0, .y = 0 };
+    try search_data.setStart(selected_start_pos);
     search_data.goal = .{ .x = 90, .y = 90 };
     search_data.measureCosts();
 
@@ -494,7 +494,8 @@ pub fn main() !void {
                 }
 
                 if (rl.IsMouseButtonDown(rl.MOUSE_BUTTON_RIGHT) and positionIsValid(mousePos)) {
-                    try search_data.setStart(mousePos);
+                    selected_start_pos = mousePos;
+                    try search_data.setStart(selected_start_pos);
                 }
 
                 if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
@@ -504,6 +505,9 @@ pub fn main() !void {
 
                 if (rl.IsKeyReleased(rl.KEY_BACKSPACE))
                     search_data.reset(false);
+
+                // TODO: draw radius for thicker walls
+                // rl.DrawText("Draw radius: {x}", )
             },
             .running => {
                 const current_func: *const fn (*SearchData) SearchError!void = djikstra;
@@ -520,7 +524,7 @@ pub fn main() !void {
 
                 if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
                     search_data.reset(true);
-                    try search_data.setStart(initial_start);
+                    try search_data.setStart(selected_start_pos);
                     app_data.state = .setup;
                 }
             },
@@ -540,7 +544,7 @@ pub fn main() !void {
 
                 if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
                     search_data.reset(true);
-                    try search_data.setStart(initial_start);
+                    try search_data.setStart(selected_start_pos);
                     app_data.state = .setup;
                 }
             },
