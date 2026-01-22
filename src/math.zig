@@ -7,6 +7,13 @@ pub const Point2D = struct {
     y: u32 = 0,
 };
 
+pub const Rectangle = struct {
+    x: u32,
+    y: u32,
+    width: u16,
+    height: u16,
+};
+
 pub fn initRand() !void {
     var prng: std.Random.DefaultPrng = .init(blk: {
         var seed: u64 = undefined;

@@ -2,6 +2,7 @@ const std = @import("std");
 const rl = @import("c.zig").rl;
 const math = @import("math.zig");
 const Maze = @import("Maze.zig").Maze;
+const ui = @import("ui.zig");
 
 pub const width = 800;
 pub const height = 800;
@@ -13,6 +14,10 @@ pub const App = struct {
     is_running: bool = false,
     state: State = .menu,
     subview: ?SubView = null,
+
+    button_select: ui.Button = ui.Button.create(0, 64, "select", menuSelect, .{ .background_color = rl.RED }),
+    button_settings: ui.Button = ui.Button.create(0, 64, "settings", menuSelect, .{ .background_color = rl.BLUE }),
+    button_quit: ui.Button = ui.Button.create(0, 64, "quit", menuSelect, .{ .background_color = rl.GREEN }),
 
     pub fn init(self: *App) !void {
         _ = self;
@@ -67,15 +72,25 @@ pub const App = struct {
         self.state = .menu;
     }
 
+    // if button == selected, button.style.borderColor = something else
+
+    fn menuSelect() void {
+        std.debug.print("select\n", .{});
+    }
+
     fn draw(self: *App) void {
         if (self.state == .running) return;
-        rl.BeginDrawing();
 
+        // what I want to do
+        // const padd = 64;
+        var main_menu_options: ui.DrawAreaList = ui.DrawAreaList.create(.{ .x = 64, .y = 64 }, 240, 400, .vertical);
+
+        rl.BeginDrawing();
         rl.ClearBackground(rl.WHITE);
-        rl.DrawText("M - Maze, T - Trains, B - Boxes", @intCast(width / 2), @intCast(height / 2), 14, rl.BLACK);
-        //TODO: Draw buttons
-        // select (Maze, Boxes, Trains, ...)
-        // about, settings, quit
+
+        main_menu_options.draw(&self.button_select);
+        main_menu_options.draw(&self.button_settings);
+        main_menu_options.draw(&self.button_quit);
 
         rl.EndDrawing();
     }
