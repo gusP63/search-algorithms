@@ -15,9 +15,9 @@ pub const App = struct {
     state: State = .menu,
     subview: ?SubView = null,
 
-    button_select: ui.Button = ui.Button.create(0, 64, "select", menuSelect, .{ .background_color = rl.RED }),
-    button_settings: ui.Button = ui.Button.create(0, 64, "settings", menuSelect, .{ .background_color = rl.BLUE }),
-    button_quit: ui.Button = ui.Button.create(0, 64, "quit", menuSelect, .{ .background_color = rl.GREEN }),
+    button_select: ui.Button = ui.Button.create(0, 64, "select", .{ .background_color = rl.RED, .margin_top = 32 }),
+    button_settings: ui.Button = ui.Button.create(0, 64, "settings", .{ .background_color = rl.BLUE, .margin_top = 32 }),
+    button_quit: ui.Button = ui.Button.create(0, 64, "quit", .{ .background_color = rl.GREEN, .margin_top = 32 }),
 
     pub fn init(self: *App) !void {
         _ = self;
@@ -43,10 +43,17 @@ pub const App = struct {
         if (self.state == .running) return;
 
         if (rl.WindowShouldClose()) self.is_running = false;
-        //TODO: a bunch of buttons, and button.isPressed callback?
         if (rl.IsKeyReleased(rl.KEY_M)) {
             self.subview = .maze;
             self.state = .running;
+        }
+
+        if (rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_LEFT)) {
+            const mouse_pos: math.Point2D = .{ .x = @intCast(rl.GetMouseX()), .y = @intCast(rl.GetMouseY()) };
+
+            if (self.button_select.isMouseInside(mouse_pos)) self.menuSelect();
+            if (self.button_settings.isMouseInside(mouse_pos)) self.menuSettings();
+            if (self.button_quit.isMouseInside(mouse_pos)) self.menuQuit();
         }
     }
 
@@ -74,16 +81,25 @@ pub const App = struct {
 
     // if button == selected, button.style.borderColor = something else
 
-    fn menuSelect() void {
+    fn menuSelect(self: *App) void {
+        _ = self;
         std.debug.print("select\n", .{});
+    }
+
+    fn menuSettings(self: *App) void {
+        _ = self;
+        std.debug.print("settings\n", .{});
+    }
+
+    fn menuQuit(self: *App) void {
+        std.debug.print("quit\n", .{});
+        self.is_running = false;
     }
 
     fn draw(self: *App) void {
         if (self.state == .running) return;
 
-        // what I want to do
-        // const padd = 64;
-        var main_menu_options: ui.DrawAreaList = ui.DrawAreaList.create(.{ .x = 64, .y = 64 }, 240, 400, .vertical);
+        var main_menu_options: ui.DrawAreaList = ui.DrawAreaList.create(.{ .x = 100, .y = 250 }, 600, 300, .vertical);
 
         rl.BeginDrawing();
         rl.ClearBackground(rl.WHITE);

@@ -7,6 +7,11 @@ pub const Point2D = struct {
     y: u32 = 0,
 };
 
+pub const Point2Df = struct {
+    x: f32 = 0,
+    y: f32 = 0,
+};
+
 pub const Rectangle = struct {
     x: u32,
     y: u32,

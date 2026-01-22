@@ -1,13 +1,15 @@
+const print = @import("std").debug.print;
 const math = @import("math.zig");
 const rl = @import("c.zig").rl;
 const Rectangle = math.Rectangle;
 const Point2D = math.Point2D;
+const Point2Df = math.Point2Df;
 
 pub const Orientation = enum { horizontal, vertical };
 
 pub const StyleProps = struct {
-    foreground_color: rl.Color = rl.BLACK,
-    background_color: rl.Color = rl.WHITE,
+    foreground_color: rl.Color = rl.WHITE,
+    background_color: rl.Color = rl.BLACK,
     border_color: ?rl.Color = null,
     margin_top: u8 = 0,
     margin_left: u8 = 0,
@@ -39,8 +41,11 @@ pub const DrawAreaList = struct { // top to bottom
             },
         }
 
+        to_draw.rect.x = self.cursor_pos.x;
+        to_draw.rect.y = self.cursor_pos.y;
+
         rl.DrawRectangle(@intCast(self.cursor_pos.x), @intCast(self.cursor_pos.y), @intCast(to_draw.rect.width), @intCast(to_draw.rect.height), to_draw.style.background_color);
-        // rl.DrawText(&&to_draw.label, @intCast(self.cursor_pos.x + to_draw.rect.width / 2), @intCast(self.cursor_pos.y + to_draw.rect.height / 2), 14, rl.WHITE);
+        rl.DrawText(@ptrCast(to_draw.label), @intCast(self.cursor_pos.x + to_draw.rect.width / 2), @intCast(self.cursor_pos.y + to_draw.rect.height / 2), 14, to_draw.style.foreground_color);
 
         switch (self.orientation) {
             .vertical => {
@@ -77,14 +82,13 @@ pub const DrawAreaGrid = struct {
 pub const Button = struct {
     rect: Rectangle,
     label: []const u8,
-    on_click: *const fn () void,
     style: StyleProps,
 
-    pub fn create(width: u16, height: u16, label: []const u8, on_click: *const fn () void, style: StyleProps) Button {
-        return .{ .rect = .{ .x = 0, .y = 0, .width = width, .height = height }, .label = label, .on_click = on_click, .style = style };
+    pub fn create(width: u16, height: u16, label: []const u8, style: StyleProps) Button {
+        return .{ .rect = .{ .x = 0, .y = 0, .width = width, .height = height }, .label = label, .style = style };
     }
 
     pub fn isMouseInside(self: *Button, mouse_pos: Point2D) bool {
-        return (mouse_pos.x > self.rect.x and mouse_pos.x < self.rect.x + self.rect.width) and mouse_pos.y > self.rect.y and mouse_pos.y < self.rect.y + self.rect.height;
+        return mouse_pos.x > self.rect.x and mouse_pos.x < self.rect.x + self.rect.width and mouse_pos.y > self.rect.y and mouse_pos.y < self.rect.y + self.rect.height;
     }
 };
