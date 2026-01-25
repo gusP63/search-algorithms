@@ -1,3 +1,4 @@
+const std = @import("std");
 const print = @import("std").debug.print;
 const math = @import("math.zig");
 const rl = @import("c.zig").rl;
@@ -20,17 +21,19 @@ pub const StyleProps = struct {
 pub const DrawAreaList = struct { // top to bottom
     rect: Rectangle,
     orientation: Orientation,
-    cursor_pos: Point2D,
-
-    pub fn create(topleft: Point2D, width: u16, height: u16, orientation: Orientation) DrawAreaList {
-        return .{ .rect = .{ .x = topleft.x, .y = topleft.y, .width = width, .height = height }, .orientation = orientation, .cursor_pos = .{ .x = topleft.x, .y = topleft.y } };
-    }
+    cursor_pos: Point2D = .{ .x = 0, .y = 0 },
 
     // will stretch the button to fill the list
     pub fn draw(self: *DrawAreaList, to_draw: *Button) void {
-        // if (self.cursor_pos > self.rect.y + self.rect.height) return;
+        if (self.cursor_pos.x == 0 and self.cursor_pos.y == 0) {
+            self.cursor_pos.x = self.rect.x;
+            self.cursor_pos.y = self.rect.y;
+        }
+
         self.cursor_pos.y += to_draw.style.margin_top;
         self.cursor_pos.x += to_draw.style.margin_left;
+        to_draw.rect.x = self.cursor_pos.x;
+        to_draw.rect.y = self.cursor_pos.y;
 
         switch (self.orientation) {
             .vertical => {
@@ -41,11 +44,8 @@ pub const DrawAreaList = struct { // top to bottom
             },
         }
 
-        to_draw.rect.x = self.cursor_pos.x;
-        to_draw.rect.y = self.cursor_pos.y;
-
-        rl.DrawRectangle(@intCast(self.cursor_pos.x), @intCast(self.cursor_pos.y), @intCast(to_draw.rect.width), @intCast(to_draw.rect.height), to_draw.style.background_color);
-        rl.DrawText(@ptrCast(to_draw.label), @intCast(self.cursor_pos.x + to_draw.rect.width / 2), @intCast(self.cursor_pos.y + to_draw.rect.height / 2), 14, to_draw.style.foreground_color);
+        rl.DrawRectangle(to_draw.rect.x, to_draw.rect.y, to_draw.rect.width, to_draw.rect.height, to_draw.style.background_color);
+        rl.DrawText(to_draw.label.ptr, to_draw.rect.x + to_draw.rect.width / 2, to_draw.rect.y + to_draw.rect.height / 2, 14, to_draw.style.foreground_color);
 
         switch (self.orientation) {
             .vertical => {
@@ -62,20 +62,31 @@ pub const DrawAreaGrid = struct {
     rect: Rectangle,
     rows: u8,
     cols: u8,
-    cursor_pos: Point2D,
+    cursor_pos: Point2D = .{ .x = 0, .y = 0 },
+    items_drawn: u8 = 0,
 
-    // pub fn create(topleft: Point2D, width: u16, height: u16) DrawAreaList {
-    //     _ = topleft;
-    // }
+    pub fn draw(self: *DrawAreaGrid, to_draw: *Button) void {
+        if (self.items_drawn >= self.rows * self.cols) return;
+        if (self.cursor_pos.x == 0 and self.cursor_pos.y == 0) {
+            self.cursor_pos.x = self.rect.x;
+            self.cursor_pos.y = self.rect.y;
+        }
+        const w = self.rect.width / self.cols;
+        const h = self.rect.height / self.rows;
 
-    //
-    pub fn draw(self: *DrawAreaList, to_draw: *Button) void {
-        _ = self;
-        _ = to_draw;
-        // if(cursor_pos > bottom_y) return;
-        // self.cursor_pos.y += to_draw.margin_top;
-        // self.cursor_pos.x += to_draw.margin_left;
-        // rl.drawRect(self.cursor_pos.x, self.cursor_pos.y, to_draw.width, to_draw.height);
+        //TODO: add spacing between items (at the grid level, not the button)
+        to_draw.rect.width = w;
+        to_draw.rect.height = h;
+        to_draw.rect.x = self.cursor_pos.x;
+        to_draw.rect.y = self.cursor_pos.y;
+
+        rl.DrawRectangle(to_draw.rect.x, to_draw.rect.y, to_draw.rect.width, to_draw.rect.height, to_draw.style.background_color);
+        rl.DrawText(to_draw.label.ptr, to_draw.rect.x + to_draw.rect.width / 2, to_draw.rect.y + to_draw.rect.height / 2, 14, to_draw.style.foreground_color);
+        self.items_drawn += 1;
+
+        const col = self.items_drawn % self.cols;
+        self.cursor_pos.x = self.rect.x + w * col;
+        if (col == 0) self.cursor_pos.y += h;
     }
 };
 
@@ -84,7 +95,7 @@ pub const Button = struct {
     label: []const u8,
     style: StyleProps,
 
-    pub fn create(width: u16, height: u16, label: []const u8, style: StyleProps) Button {
+    pub fn create(width: u32, height: u32, label: []const u8, style: StyleProps) Button {
         return .{ .rect = .{ .x = 0, .y = 0, .width = width, .height = height }, .label = label, .style = style };
     }
 

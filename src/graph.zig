@@ -3,7 +3,7 @@ const rl = @import("c.zig").rl;
 const Point2D = @import("math.zig").Point2D;
 
 pub const Cost = union(enum) {
-    value: u32,
+    value: u64,
     infinity,
 };
 
@@ -25,8 +25,8 @@ pub const Graph = struct {
     nodes: [100 * 100]Node = undefined,
 
     pub fn init(self: *Graph) void {
-        var y: u32 = 0;
-        var x: u32 = 0;
+        var y: u31 = 0;
+        var x: u31 = 0;
 
         //todo: this should be just for maze(or make this a different func, not default init)
         // I should be able to design the graph by hand
@@ -74,13 +74,12 @@ pub const Graph = struct {
     }
 
     //todo: add option for drawing a circle/rectangle/triangle
-    pub fn draw(self: *Graph, node_width: u16) void {
+    pub fn draw(self: *Graph, node_width: u31) void {
         for (self.nodes) |node| {
             const color = if (node.is_wall) rl.GRAY else if (node.visited) rl.GREEN else rl.WHITE;
 
             //todo: might not want to multiply by node_width
-            rl.DrawRectangle(@intCast(node.point.x * node_width), @intCast(node.point.y * node_width), node_width, node_width, color);
-            // rl.DrawCircle
+            rl.DrawRectangle(node.point.x * node_width, node.point.y * node_width, node_width, node_width, color);
         }
     }
 

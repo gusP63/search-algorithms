@@ -17,6 +17,7 @@ pub const App = struct {
 
     button_select: ui.Button = ui.Button.create(0, 64, "select", .{ .background_color = rl.RED, .margin_top = 32 }),
     button_settings: ui.Button = ui.Button.create(0, 64, "settings", .{ .background_color = rl.BLUE, .margin_top = 32 }),
+    button_settings2: ui.Button = ui.Button.create(0, 64, "settings", .{ .background_color = rl.BLUE, .margin_top = 32 }),
     button_quit: ui.Button = ui.Button.create(0, 64, "quit", .{ .background_color = rl.GREEN, .margin_top = 32 }),
 
     pub fn init(self: *App) !void {
@@ -99,7 +100,26 @@ pub const App = struct {
     fn draw(self: *App) void {
         if (self.state == .running) return;
 
-        var main_menu_options: ui.DrawAreaList = ui.DrawAreaList.create(.{ .x = 100, .y = 250 }, 600, 300, .vertical);
+        var main_menu_options: ui.DrawAreaList = .{
+            .rect = .{
+                .width = 600,
+                .height = 300,
+                .x = 100,
+                .y = 250,
+            },
+            .orientation = .vertical,
+        };
+        // var select_menu_options: ui.DrawAreaGrid = .{
+        //     .rect = .{
+        //         .width = width,
+        //         .height = height,
+        //         .x = 0,
+        //         .y = 0,
+        //     },
+        //     .rows = 2,
+        //     .cols = 2,
+        // };
+        // select_menu_options.cols = 10;
 
         rl.BeginDrawing();
         rl.ClearBackground(rl.WHITE);

@@ -3,8 +3,8 @@ const std = @import("std");
 pub var random: std.Random = undefined;
 
 pub const Point2D = struct {
-    x: u32 = 0,
-    y: u32 = 0,
+    x: u31 = 0,
+    y: u31 = 0,
 };
 
 pub const Point2Df = struct {
@@ -13,8 +13,8 @@ pub const Point2Df = struct {
 };
 
 pub const Rectangle = struct {
-    x: u32,
-    y: u32,
+    x: u31,
+    y: u31,
     width: u16,
     height: u16,
 };

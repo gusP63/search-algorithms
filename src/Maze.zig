@@ -1,4 +1,5 @@
 const print = @import("std").debug.print;
+const cast = @import("cast.zig").cast;
 const app = @import("App.zig");
 const rl = @import("c.zig").rl;
 const search = @import("search.zig");
@@ -10,14 +11,20 @@ const Node = graph.Node;
 // const cols = 100;
 // const cell_width = app.width / app.rows;
 
-const MazeError = error{PointDoesNotExist};
+const MazeError = error{
+    PointDoesNotExist,
+};
 
-const State = enum { setup, running, done };
+const State = enum {
+    setup,
+    running,
+    done,
+};
 
 pub const Maze = struct {
-    rows: u32,
-    cols: u32,
-    cell_width: u16,
+    rows: u31,
+    cols: u31,
+    cell_width: u31,
 
     texture_cheese: rl.Texture2D,
     texture_rat: rl.Texture2D,
@@ -27,7 +34,7 @@ pub const Maze = struct {
     search_data: search.SearchData = .{},
     selected_start_pos: Point2D = .{ .x = 0, .y = 0 },
 
-    pub fn create(maze_rows: u32, maze_cols: u16) Maze {
+    pub fn create(maze_rows: u31, maze_cols: u16) Maze {
         const image_rat: rl.Image = rl.LoadImage("src/assets/mouse_right.png");
         defer rl.UnloadImage(image_rat);
         const image_cheese: rl.Image = rl.LoadImage("src/assets/cheese.png");
@@ -39,7 +46,7 @@ pub const Maze = struct {
             .texture_rat = rl.LoadTextureFromImage(image_rat),
             .rows = maze_rows,
             .cols = maze_cols,
-            .cell_width = @intCast(app.width / maze_rows),
+            .cell_width = app.width / maze_rows,
             .is_running = false,
             .state = .setup,
         };
@@ -70,9 +77,10 @@ pub const Maze = struct {
         const cell_width = self.cell_width;
         switch (self.state) {
             .setup => {
-                const x = @divFloor(rl.GetMouseX(), @as(c_int, cell_width));
-                const y = @divFloor(rl.GetMouseY(), @as(c_int, cell_width));
-                const mousePos: Point2D = .{ .x = @intCast(x), .y = @intCast(y) };
+                const x = @divFloor(rl.GetMouseX(), cell_width);
+                const y = @divFloor(rl.GetMouseY(), cell_width);
+
+                const mousePos: Point2D = .{ .x = cast(u31, x), .y = cast(u31, y) };
 
                 if (rl.IsMouseButtonDown(rl.MOUSE_BUTTON_LEFT) and self.positionIsValid(mousePos)) {
                     const index: usize = self.getArrayIndex(mousePos);
@@ -140,19 +148,19 @@ pub const Maze = struct {
         rl.ClearBackground(rl.WHITE);
 
         self.search_data.graph.draw(cell_width);
-        rl.DrawTexture(self.texture_cheese, @intCast(self.search_data.goal.x * cell_width), @intCast(self.search_data.goal.y * cell_width), rl.YELLOW);
-        rl.DrawTexture(self.texture_rat, @intCast(self.search_data.current_node.point.x * cell_width), @intCast(self.search_data.current_node.point.y * cell_width), rl.BROWN);
+        rl.DrawTexture(self.texture_cheese, self.search_data.goal.x * cell_width, self.search_data.goal.y * cell_width, rl.YELLOW);
+        rl.DrawTexture(self.texture_rat, self.search_data.current_node.point.x * cell_width, self.search_data.current_node.point.y * cell_width, rl.BROWN);
         if (self.state == .done) {
             if (self.search_data.found_a_solution) {
                 var iterator: *Node = self.search_data.current_node;
                 while (iterator.parent != null) {
-                    rl.DrawRectangle(@intCast(iterator.point.x * cell_width), @intCast(iterator.point.y * cell_width), cell_width, cell_width, rl.DARKGREEN);
+                    rl.DrawRectangle(iterator.point.x * cell_width, iterator.point.y * cell_width, cell_width, cell_width, rl.DARKGREEN);
                     iterator = iterator.parent.?;
                 }
 
-                rl.DrawText("Found Solution!", @intCast(14), @intCast(14), 24, rl.RED);
+                rl.DrawText("Found Solution!", 14, 14, 24, rl.RED);
             } else {
-                rl.DrawText("Could not find a solution... :(", @intCast(14), @intCast(14), 24, rl.RED);
+                rl.DrawText("Could not find a solution... :(", 14, 14, 24, rl.RED);
             }
         }
 
@@ -166,6 +174,6 @@ pub const Maze = struct {
     }
 
     fn getArrayIndex(self: Maze, from: Point2D) usize {
-        return @intCast(from.x + from.y * self.rows);
+        return from.x + from.y * self.rows;
     }
 };
