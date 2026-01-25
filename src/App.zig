@@ -1,8 +1,9 @@
 const std = @import("std");
 const rl = @import("c.zig").rl;
 const math = @import("math.zig");
-const Maze = @import("Maze.zig").Maze;
 const ui = @import("ui.zig");
+const Maze = @import("Maze.zig").Maze;
+const Boxes = @import("Boxes.zig").Boxes;
 
 pub const width = 800;
 pub const height = 800;
@@ -35,7 +36,7 @@ pub const App = struct {
 
     select_maze: ui.Button = ui.Button.create(0, 64, "Maze", .{ .background_color = rl.GREEN, .margin_top = 32 }),
     select_trains: ui.Button = ui.Button.create(0, 64, "Train Stations", .{ .background_color = rl.BLUE, .margin_top = 32 }),
-    select_boxes: ui.Button = ui.Button.create(0, 64, "Box Sort", .{ .background_color = rl.YELLOW, .margin_top = 32 }),
+    select_boxes: ui.Button = ui.Button.create(0, 64, "Box Sort", .{ .background_color = rl.GRAY, .margin_top = 32 }),
     select_gradient: ui.Button = ui.Button.create(0, 64, "Color Sort", .{ .background_color = rl.RED, .margin_top = 32 }),
 
     pub fn init(self: *App) !void {
@@ -89,6 +90,12 @@ pub const App = struct {
                         std.debug.print("Error loading maze", .{});
                     };
                     maze.destroy();
+                },
+                .boxes => {
+                    var boxes: Boxes = .{};
+                    boxes.init();
+                    boxes.run();
+                    boxes.destroy();
                 },
                 else => {},
             }

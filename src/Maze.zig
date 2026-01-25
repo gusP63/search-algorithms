@@ -29,8 +29,8 @@ pub const Maze = struct {
     texture_cheese: rl.Texture2D,
     texture_rat: rl.Texture2D,
 
-    is_running: bool = false,
     state: State = .setup,
+    quit: bool = false,
     search_data: search.SearchData = .{},
     selected_start_pos: Point2D = .{ .x = 0, .y = 0 },
 
@@ -47,7 +47,7 @@ pub const Maze = struct {
             .rows = maze_rows,
             .cols = maze_cols,
             .cell_width = app.width / maze_rows,
-            .is_running = false,
+            .quit = false,
             .state = .setup,
         };
     }
@@ -63,8 +63,8 @@ pub const Maze = struct {
         self.search_data.goal = .{ .x = 90, .y = 90 };
         self.search_data.measureCosts();
 
-        self.is_running = true;
-        while (self.is_running) {
+        self.quit = false;
+        while (!self.quit) {
             self.input();
             self.frame();
             self.draw();
@@ -75,7 +75,7 @@ pub const Maze = struct {
         const cell_width = self.cell_width;
         switch (self.state) {
             .setup => {
-                if (rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_RIGHT)) self.is_running = false;
+                if (rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_RIGHT)) self.quit = true;
 
                 const x = @divFloor(rl.GetMouseX(), cell_width);
                 const y = @divFloor(rl.GetMouseY(), cell_width);
@@ -92,7 +92,7 @@ pub const Maze = struct {
                     self.selected_start_pos = mousePos;
                     self.search_data.setStart(self.selected_start_pos) catch {
                         print("index out of bounds", .{});
-                        self.is_running = false;
+                        self.quit = true;
                     };
                 }
 
@@ -109,7 +109,7 @@ pub const Maze = struct {
                     self.search_data.reset(true);
                     self.search_data.setStart(self.selected_start_pos) catch {
                         print("index out of bounds", .{});
-                        self.is_running = false;
+                        self.quit = true;
                     };
                     self.state = .setup;
                 }
@@ -119,7 +119,7 @@ pub const Maze = struct {
                     self.search_data.reset(true);
                     self.search_data.setStart(self.selected_start_pos) catch {
                         print("index out of bounds", .{});
-                        self.is_running = false;
+                        self.quit = true;
                     };
                     self.state = .setup;
                 }
@@ -145,7 +145,6 @@ pub const Maze = struct {
         const cell_width = self.cell_width;
 
         rl.BeginDrawing();
-
         rl.ClearBackground(rl.WHITE);
 
         self.search_data.graph.draw(cell_width);

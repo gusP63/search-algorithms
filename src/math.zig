@@ -1,7 +1,5 @@
 const std = @import("std");
 
-pub var random: std.Random = undefined;
-
 pub const Point2D = struct {
     x: u31 = 0,
     y: u31 = 0,
@@ -19,11 +17,10 @@ pub const Rectangle = struct {
     height: u16,
 };
 
+pub var random: std.Random = undefined;
+
 pub fn initRand() !void {
-    var prng: std.Random.DefaultPrng = .init(blk: {
-        var seed: u64 = undefined;
-        try std.posix.getrandom(std.mem.asBytes(&seed));
-        break :blk seed;
-    });
+    const seed = @abs(std.time.microTimestamp());
+    var prng = std.Random.DefaultPrng.init(seed);
     random = prng.random();
 }
