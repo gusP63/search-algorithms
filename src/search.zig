@@ -1,8 +1,9 @@
 const app = @import("App.zig");
-const cast = @import("cast.zig");
+const cast = @import("cast.zig").cast;
 const graph = @import("graph.zig");
 const math = @import("math.zig");
 const Fifo = @import("containers.zig").Fifo;
+const print = @import("std").debug.print;
 
 const Graph = graph.Graph;
 const Node = graph.Node;
@@ -48,9 +49,9 @@ pub const SearchData = struct {
     // lower cost means less distance to the goal
     pub fn measureCosts(self: *SearchData) void {
         for (&self.graph.nodes) |*e| {
-            var dX: i33 = e.point.x - self.goal.x;
+            var dX: i33 = cast(i33, e.point.x) - cast(i33, self.goal.x);
             if (dX < 0) dX = -dX;
-            var dY: i33 = e.point.y - self.goal.y;
+            var dY: i33 = cast(i33, e.point.y) - cast(i33, self.goal.y);
             if (dY < 0) dY = -dY;
 
             e.cost = Cost{ .value = @abs(dX + dY) };

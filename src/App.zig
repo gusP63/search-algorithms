@@ -7,18 +7,36 @@ const ui = @import("ui.zig");
 pub const width = 800;
 pub const height = 800;
 
-const State = enum { menu, running };
-const SubView = enum { maze, stations, boxes, gradient };
+const State = enum {
+    menu,
+    running,
+};
+const SubMenu = enum {
+    main,
+    select,
+    settings,
+};
+const SubView = enum {
+    maze,
+    stations,
+    boxes,
+    gradient,
+};
 
 pub const App = struct {
     is_running: bool = false,
     state: State = .menu,
+    submenu: SubMenu = .main,
     subview: ?SubView = null,
 
     button_select: ui.Button = ui.Button.create(0, 64, "select", .{ .background_color = rl.RED, .margin_top = 32 }),
     button_settings: ui.Button = ui.Button.create(0, 64, "settings", .{ .background_color = rl.BLUE, .margin_top = 32 }),
-    button_settings2: ui.Button = ui.Button.create(0, 64, "settings", .{ .background_color = rl.BLUE, .margin_top = 32 }),
     button_quit: ui.Button = ui.Button.create(0, 64, "quit", .{ .background_color = rl.GREEN, .margin_top = 32 }),
+
+    select_maze: ui.Button = ui.Button.create(0, 64, "Maze", .{ .background_color = rl.GREEN, .margin_top = 32 }),
+    select_trains: ui.Button = ui.Button.create(0, 64, "Train Stations", .{ .background_color = rl.BLUE, .margin_top = 32 }),
+    select_boxes: ui.Button = ui.Button.create(0, 64, "Box Sort", .{ .background_color = rl.YELLOW, .margin_top = 32 }),
+    select_gradient: ui.Button = ui.Button.create(0, 64, "Color Sort", .{ .background_color = rl.RED, .margin_top = 32 }),
 
     pub fn init(self: *App) !void {
         _ = self;
@@ -43,18 +61,18 @@ pub const App = struct {
     fn input(self: *App) void {
         if (self.state == .running) return;
 
-        if (rl.WindowShouldClose()) self.is_running = false;
-        if (rl.IsKeyReleased(rl.KEY_M)) {
-            self.subview = .maze;
-            self.state = .running;
+        if (rl.IsKeyReleased(rl.KEY_ESCAPE) or rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_RIGHT)) {
+            if (self.submenu == .main) self.is_running = false else self.submenu = .main;
         }
 
         if (rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_LEFT)) {
             const mouse_pos: math.Point2D = .{ .x = @intCast(rl.GetMouseX()), .y = @intCast(rl.GetMouseY()) };
 
-            if (self.button_select.isMouseInside(mouse_pos)) self.menuSelect();
-            if (self.button_settings.isMouseInside(mouse_pos)) self.menuSettings();
-            if (self.button_quit.isMouseInside(mouse_pos)) self.menuQuit();
+            switch (self.submenu) {
+                .main => self.mainMenuInputs(mouse_pos),
+                .select => self.selectMenuInputs(mouse_pos),
+                .settings => self.settingsMenuInputs(mouse_pos),
+            }
         }
     }
 
@@ -80,26 +98,24 @@ pub const App = struct {
         self.state = .menu;
     }
 
-    // if button == selected, button.style.borderColor = something else
-
-    fn menuSelect(self: *App) void {
-        _ = self;
-        std.debug.print("select\n", .{});
-    }
-
-    fn menuSettings(self: *App) void {
-        _ = self;
-        std.debug.print("settings\n", .{});
-    }
-
-    fn menuQuit(self: *App) void {
-        std.debug.print("quit\n", .{});
-        self.is_running = false;
-    }
-
     fn draw(self: *App) void {
         if (self.state == .running) return;
 
+        rl.BeginDrawing();
+        rl.ClearBackground(rl.WHITE);
+
+        switch (self.submenu) {
+            .main => self.mainMenuDraw(),
+            .select => self.selectMenuDraw(),
+            .settings => self.settingsMenuDraw(),
+        }
+
+        rl.EndDrawing();
+    }
+
+    // if button == selected, button.style.borderColor = something else
+
+    fn mainMenuDraw(self: *App) void {
         var main_menu_options: ui.DrawAreaList = .{
             .rect = .{
                 .width = 600,
@@ -109,25 +125,57 @@ pub const App = struct {
             },
             .orientation = .vertical,
         };
-        // var select_menu_options: ui.DrawAreaGrid = .{
-        //     .rect = .{
-        //         .width = width,
-        //         .height = height,
-        //         .x = 0,
-        //         .y = 0,
-        //     },
-        //     .rows = 2,
-        //     .cols = 2,
-        // };
-        // select_menu_options.cols = 10;
-
-        rl.BeginDrawing();
-        rl.ClearBackground(rl.WHITE);
-
         main_menu_options.draw(&self.button_select);
         main_menu_options.draw(&self.button_settings);
         main_menu_options.draw(&self.button_quit);
+    }
 
-        rl.EndDrawing();
+    fn mainMenuInputs(self: *App, mouse_pos: math.Point2D) void {
+        if (self.button_select.isMouseInside(mouse_pos)) self.submenu = .select;
+        if (self.button_settings.isMouseInside(mouse_pos)) self.submenu = .settings;
+        if (self.button_quit.isMouseInside(mouse_pos)) self.is_running = false;
+    }
+
+    fn selectMenuDraw(self: *App) void {
+        var select_menu_options: ui.DrawAreaGrid = .{
+            .rect = .{
+                .width = width,
+                .height = height,
+                .x = 0,
+                .y = 0,
+            },
+            .rows = 2,
+            .cols = 2,
+        };
+
+        select_menu_options.draw(&self.select_maze);
+        select_menu_options.draw(&self.select_trains);
+        select_menu_options.draw(&self.select_boxes);
+        select_menu_options.draw(&self.select_gradient);
+    }
+
+    fn selectMenuInputs(self: *App, mouse_pos: math.Point2D) void {
+        if (self.select_boxes.isMouseInside(mouse_pos)) self.subview = .boxes;
+        if (self.select_maze.isMouseInside(mouse_pos)) self.subview = .maze;
+        if (self.select_gradient.isMouseInside(mouse_pos)) self.subview = .gradient;
+        if (self.select_trains.isMouseInside(mouse_pos)) self.subview = .stations;
+        self.state = .running;
+    }
+
+    fn settingsMenuDraw(self: *App) void {
+        _ = self;
+        rl.DrawText(
+            "Settings",
+            width / 2,
+            height / 2,
+            16,
+            rl.BLACK,
+        );
+    }
+
+    fn settingsMenuInputs(self: *App, mouse_pos: math.Point2D) void {
+        if (self.button_select.isMouseInside(mouse_pos)) self.submenu = .select;
+        if (self.button_settings.isMouseInside(mouse_pos)) self.submenu = .settings;
+        if (self.button_quit.isMouseInside(mouse_pos)) self.is_running = false;
     }
 };

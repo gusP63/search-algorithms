@@ -72,13 +72,14 @@ pub const Maze = struct {
     }
 
     fn input(self: *Maze) void {
-        if (rl.WindowShouldClose()) self.is_running = false;
-
         const cell_width = self.cell_width;
         switch (self.state) {
             .setup => {
+                if (rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_RIGHT)) self.is_running = false;
+
                 const x = @divFloor(rl.GetMouseX(), cell_width);
                 const y = @divFloor(rl.GetMouseY(), cell_width);
+                if (x < 0 or y < 0) return;
 
                 const mousePos: Point2D = .{ .x = cast(u31, x), .y = cast(u31, y) };
 
@@ -87,7 +88,7 @@ pub const Maze = struct {
                     self.search_data.graph.nodes[index].is_wall = true;
                 }
 
-                if (rl.IsMouseButtonDown(rl.MOUSE_BUTTON_RIGHT) and self.positionIsValid(mousePos)) {
+                if (rl.IsKeyReleased(rl.KEY_SPACE) and self.positionIsValid(mousePos)) {
                     self.selected_start_pos = mousePos;
                     self.search_data.setStart(self.selected_start_pos) catch {
                         print("index out of bounds", .{});
@@ -95,16 +96,16 @@ pub const Maze = struct {
                     };
                 }
 
-                if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
+                if (rl.IsKeyReleased(rl.KEY_S) or rl.IsKeyReleased(rl.KEY_ENTER)) {
                     self.search_data.graph.updateEdges();
                     self.state = .running;
                 }
 
-                if (rl.IsKeyReleased(rl.KEY_BACKSPACE))
+                if (rl.IsKeyReleased(rl.KEY_R))
                     self.search_data.reset(false);
             },
             .running => {
-                if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
+                if (rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_RIGHT)) {
                     self.search_data.reset(true);
                     self.search_data.setStart(self.selected_start_pos) catch {
                         print("index out of bounds", .{});
@@ -114,7 +115,7 @@ pub const Maze = struct {
                 }
             },
             .done => {
-                if (rl.IsKeyReleased(rl.KEY_SPACE) or rl.IsKeyReleased(rl.KEY_ENTER)) {
+                if (rl.IsMouseButtonReleased(rl.MOUSE_BUTTON_RIGHT)) {
                     self.search_data.reset(true);
                     self.search_data.setStart(self.selected_start_pos) catch {
                         print("index out of bounds", .{});
